@@ -382,8 +382,13 @@ def _string_constants(node: ast.AST) -> list[str]:
 
 def test_warmup_cypher_uses_parameterization():
     """Any warm-up function whose signature takes a non-self argument must
-    return a query whose string body references `$<name>`. q1 takes no
-    parameters and is exempt."""
+    have a string literal somewhere in its body that references `$<name>`.
+    q1 takes no parameters and is exempt.
+
+    Accepts both the inline return form (`return "MATCH ... $cuisine ..."`)
+    and the idiomatic Python form (`cypher = "MATCH ... $cuisine ..."`
+    followed by `return cypher, {...}`) — both are correct.
+    """
     src = _module_source("warmups.py")
     tree = ast.parse(src)
     found_parameterized = False
@@ -395,16 +400,18 @@ def test_warmup_cypher_uses_parameterization():
         if not params:
             continue
         parameterizable_seen = True
-        # Walk the function body for returned string constants containing $.
-        for ret in _function_returns(node):
-            for s in _string_constants(ret):
-                if "$" in s:
-                    found_parameterized = True
+        # Walk the entire function body for any string constant containing $.
+        # This catches both `return "...$param..."` and
+        # `x = "...$param..."; return x, {...}` patterns.
+        for s in _string_constants(node):
+            if "$" in s:
+                found_parameterized = True
+                break
     if not parameterizable_seen:
         pytest.skip("No warm-up function takes a parameter.")
     assert found_parameterized, (
         "Warm-up functions that take parameters must use $param syntax in "
-        "their returned Cypher, not f-string interpolation."
+        "their Cypher string, not f-string interpolation."
     )
 
 
@@ -536,18 +543,15 @@ def test_entity_id_uniqueness(driver):
 # ============================================================
 
 def test_starter_unmodified_fails():
-    """If the learner has not touched any query function, at least one of
-    the query functions in queries/ will still return "". The other tests
-    above already assert non-empty strings before running the queries, so
-    this test is a meta-check that the starter is genuinely failing-by-
-    default. We assert: not every query function returns a non-empty
-    string when called on the unmodified starter — i.e., it is impossible
-    for an unmodified starter to pass this autograder.
+    """Verify that the unmodified starter produces at least one empty Cypher
+    string across the query surface — i.e., it is impossible for an
+    unmodified starter to silently pass this autograder.
 
-    To satisfy this test, the autograder's other tests must collectively
-    cover every query function with an emptiness check. We verify that by
-    counting query functions and asserting the count is positive (defense
-    in depth).
+    A query function "returns empty" if calling it produces a cypher
+    string (positional 0 of the tuple, or the bare string) that is empty
+    or whitespace-only. At least one such function must exist on the
+    unmodified starter; if all functions return non-empty Cypher, the
+    starter is effectively pre-completed and the sentinel must fire.
     """
     from queries import translations, warmups
 
@@ -561,4 +565,23 @@ def test_starter_unmodified_fails():
         translations.q4,
         translations.q5,
     ]
-    assert len(funcs) >= 5, "Sentinel could not enumerate query functions."
+
+    def _cypher_of(fn):
+        try:
+            result = fn()
+        except Exception:
+            # An unimplemented function may raise — that's also a failing
+            # starter signal.
+            return ""
+        if isinstance(result, tuple) and result:
+            cy = result[0]
+        else:
+            cy = result
+        return cy if isinstance(cy, str) else ""
+
+    empty_count = sum(1 for fn in funcs if not _cypher_of(fn).strip())
+    assert empty_count >= 1, (
+        "Sentinel: every query function returned non-empty Cypher on what "
+        "should be the unmodified starter. The starter is either pre-filled "
+        "or the sentinel is misconfigured — investigate before grading."
+    )
