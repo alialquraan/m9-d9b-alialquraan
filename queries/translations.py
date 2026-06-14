@@ -19,7 +19,11 @@ def q1() -> str:
     """
     # TODO: Match every :Book and return its id (alias `book`) and its
     #       `title` property.
-    return ""
+    return """
+    MATCH (b:Book)
+    RETURN b.id AS book,
+           b.title AS title
+    """
 
 
 def q2() -> str:
@@ -30,7 +34,12 @@ def q2() -> str:
     and `year` (int). On the fixture: 1 row.
     """
     # TODO: Match every :Book, filter on year > 2010, return id and year.
-    return ""
+    return """
+    MATCH (b:Book)
+    WHERE b.year > 2010
+    RETURN b.id AS book,
+           b.year AS year
+    """
 
 
 def q3() -> str:
@@ -43,7 +52,11 @@ def q3() -> str:
     """
     # TODO: Traverse :Book -[:AUTHORED_BY]-> :Author and return the book
     #       id and the author's name.
-    return ""
+    return """
+    MATCH (b:Book)-[:AUTHORED_BY]->(a:Author)
+    RETURN b.id AS book,
+           a.name AS author_name
+    """
 
 
 def q4() -> str:
@@ -57,7 +70,12 @@ def q4() -> str:
     # TODO: Match every :Book, OPTIONAL-match its `topic` property (or its
     #       :ON_TOPIC edge — pick one canonical source and document it),
     #       and return id and topic.
-    return ""
+    return """
+    MATCH (b:Book)
+    OPTIONAL MATCH (b)-[:ON_TOPIC]->(t:Topic)
+    RETURN b.id AS book,
+           t.name AS topic
+    """
 
 
 def q5() -> str:
@@ -74,4 +92,8 @@ def q5() -> str:
     # TODO: Return a one-row, one-column boolean. EXISTS { ... } or a
     #       count-based predicate both work; the autograder checks the
     #       single boolean value, not the shape of the predicate.
-    return ""
+    return """
+    MATCH (b:Book)-[:AUTHORED_BY]->(a:Author)
+    WITH b, COUNT(DISTINCT a) AS author_count
+    RETURN COUNT(CASE WHEN author_count > 1 THEN 1 END) > 0 AS result
+    """
