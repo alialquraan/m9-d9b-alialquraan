@@ -27,9 +27,19 @@ from queries.warmups import q1_list_recipes, q2_filter_by_cuisine, q3_subclass_t
 
 def test_q1_list_recipes_returns_all_five(driver):
     """Replace this body with your own assertion(s)."""
-    pytest.fail("Not implemented — write your test here")
+    cypher = q1_list_recipes()
+
+    with driver.session() as session:
+        rows = list(session.run(cypher))
+
+    assert len(rows) == 5
 
 
 def test_q3_traversal_picks_up_subclasses(driver):
     """Replace this body with your own assertion(s)."""
-    pytest.fail("Not implemented — write your test here")
+    cypher = q3_subclass_traversal("Chinese")
+
+    with driver.session() as session:
+        rows = list(session.run(cypher))
+
+    assert len(rows) > 0
